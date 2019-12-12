@@ -52,7 +52,7 @@ fn get_modules() -> Result<Vec<Module>, Box<dyn Error>> {
     modules
 }
 
-pub(crate) fn calculate_fuel(modules: &Vec<Module>, fn_fuel: Box<dyn Fn(&Module) -> u64>) -> u64 {
+pub(crate) fn calculate_fuel(modules: &Vec<Module>, fn_fuel: &dyn Fn(&Module) -> u64) -> u64 {
     modules
         .iter()
         .fold(0u64, |acc, x| acc + fn_fuel(x))
@@ -60,7 +60,7 @@ pub(crate) fn calculate_fuel(modules: &Vec<Module>, fn_fuel: Box<dyn Fn(&Module)
 
 fn main() -> Result<(), Box<dyn Error>> {
     let modules = get_modules()?;
-    println!("Part 1: {}", calculate_fuel(&modules, Box::new(Module::fuel_requirement)));
-    println!("Part 2: {}", calculate_fuel(&modules,Box::new(Module::full_fuel_requirement)));
+    println!("Part 1: {}", calculate_fuel(&modules, &Module::fuel_requirement));
+    println!("Part 2: {}", calculate_fuel(&modules,&Module::full_fuel_requirement));
     Ok(())
 }
