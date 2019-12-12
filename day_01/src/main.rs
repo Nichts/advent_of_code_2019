@@ -1,7 +1,8 @@
-use std::error::Error;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::iter;
+
+use anyhow::Result;
 
 fn fuel_requirement(mass: u64) -> u64 {
     (mass / 3).saturating_sub(2)
@@ -19,16 +20,13 @@ fn full_fuel_requirement(mass: u64) -> u64 {
     }).fold(total_fuel_requirement, |acc, x| acc + x)
 }
 
-fn get_modules() -> Result<Vec<u64>, Box<dyn Error>> {
-    let file: File = File::open("input.txt").map_err(|e| -> Box<dyn Error> { e.into() })?;
+fn get_modules() -> Result<Vec<u64>> {
+    let file: File = File::open("input.txt")?;
     let buf_reader = BufReader::new(file);
     let iter = buf_reader
         .lines()
         .map(|line| {
-            Ok(line
-                .map_err(|e| -> Box<dyn Error> { e.into() })?
-                .parse::<u64>()
-                .map_err(|e| -> Box<dyn Error> { e.into() })?)
+            Ok(line?.parse::<u64>()?)
         });
     let modules: Result<Vec<_>, _> = iter.collect();
     modules
@@ -40,7 +38,7 @@ pub(crate) fn calculate_fuel(modules: &Vec<u64>, fn_fuel: &dyn Fn(u64) -> u64) -
         .fold(0u64, |acc, &x| acc + fn_fuel(x))
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() -> Result<()> {
     let masses = get_modules()?;
     println!("Part 1: {}", calculate_fuel(&masses, &fuel_requirement));
     println!("Part 2: {}", calculate_fuel(&masses,&full_fuel_requirement));
