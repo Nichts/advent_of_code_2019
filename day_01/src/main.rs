@@ -21,24 +21,19 @@ fn full_fuel_requirement(mass: u64) -> u64 {
     .fold(total_fuel_requirement, |acc, x| acc + x)
 }
 
-fn get_modules() -> Result<Vec<u64>> {
+fn get_modules() -> Result<impl Iterator<Item = Result<u64>>> {
     let file: File = File::open("input.txt")?;
     let buf_reader = BufReader::new(file);
-    let iter = buf_reader.lines().map(|line| Ok(line?.parse::<u64>()?));
-    let modules: Result<Vec<_>, _> = iter.collect();
-    modules
+    Ok(buf_reader.lines().map(|line| Ok(line?.parse::<u64>()?)))
 }
 
-pub(crate) fn calculate_fuel(modules: &[u64], fn_fuel: &dyn Fn(u64) -> u64) -> u64 {
-    modules.iter().fold(0u64, |acc, &x| acc + fn_fuel(x))
+pub(crate) fn calculate_fuel(fn_fuel: &dyn Fn(u64) -> u64) -> Result<u64> {
+    let mut modules = get_modules()?;
+    modules.try_fold(0u64, |acc, x| Ok(acc + fn_fuel(x?)))
 }
 
 fn main() -> Result<()> {
-    let masses = get_modules()?;
-    println!("Part 1: {}", calculate_fuel(&masses, &fuel_requirement));
-    println!(
-        "Part 2: {}",
-        calculate_fuel(&masses, &full_fuel_requirement)
-    );
+    println!("Part 1: {}", calculate_fuel(&fuel_requirement)?);
+    println!("Part 2: {}", calculate_fuel(&full_fuel_requirement)?);
     Ok(())
 }
