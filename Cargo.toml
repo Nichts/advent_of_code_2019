@@ -1,5 +1,5 @@
 [package]
-name = "day_01"
+name = "advent_of_code_2019"
 version = "0.1.0"
 authors = ["Nichts <nichts@users.noreply.github.com>"]
 edition = "2018"
@@ -8,3 +8,5 @@ edition = "2018"
 
 [dependencies]
 anyhow = "1.0.25"
+thiserror = "1.0.9"
+num = "0.2.0"
