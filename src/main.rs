@@ -1,13 +1,18 @@
 mod day01;
 mod day02;
 mod day03;
+mod day04;
 mod vm;
 
 use anyhow::Result;
 
-fn main() -> Result<()> {
-    day01::main()?;
-    day02::main()?;
-    day03::main()?;
-    Ok(())
+macro_rules! days {
+    ( $($day:ident),* ) => {
+        fn main() -> Result<()> {
+            $($day::main()?;)*
+            Ok(())
+        }
+    }
 }
+
+days! {day01, day02, day03, day04}
