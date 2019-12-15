@@ -1,10 +1,10 @@
-use nalgebra::{Point2, Vector2};
-use std::collections::HashSet;
-use std::fs::read_to_string;
 use anyhow::Result;
-use thiserror::Error;
-use std::convert::TryFrom;
+use nalgebra::{Point2, Vector2};
 use regex::Regex;
+use std::collections::HashMap;
+use std::convert::TryFrom;
+use std::fs::read_to_string;
+use thiserror::Error;
 
 use lazy_static::lazy_static;
 
@@ -38,9 +38,6 @@ impl<'a> StepIter<'a> {
 }
 
 impl Segment {
-    fn new(direction: Direction, length: Value) -> Self {
-        Self { direction, length }
-    }
     fn iter_steps(&self) -> StepIter {
         StepIter::new(&self)
     }
@@ -53,19 +50,20 @@ impl TryFrom<&str> for Segment {
     type Error = Error;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        let captures = MATCHER.captures(value).ok_or(Error::InvalidSegment(value.to_owned()))?;
+        let captures = MATCHER
+            .captures(value)
+            .ok_or_else(|| Error::InvalidSegment(value.to_owned()))?;
         let direction = match &captures[1] {
             "R" => Direction::Right,
             "L" => Direction::Left,
             "U" => Direction::Up,
             "D" => Direction::Down,
-            _ => Err(Error::InvalidSegment(value.to_owned()))?
+            _ => return Err(Error::InvalidSegment(value.to_owned())),
         };
-        let length: Value = captures[2].parse().map_err(|_| Error::InvalidSegment(value.to_owned()))?;
-        Ok(Self {
-            direction,
-            length,
-        })
+        let length: Value = captures[2]
+            .parse()
+            .map_err(|_| Error::InvalidSegment(value.to_owned()))?;
+        Ok(Self { direction, length })
     }
 }
 
@@ -81,7 +79,6 @@ impl<'a> Iterator for StepIter<'a> {
         }
     }
 }
-
 
 #[derive(Debug, PartialEq)]
 enum Direction {
@@ -100,17 +97,6 @@ impl Direction {
             Direction::Down => Vector::new(0, -length),
         }
     }
-
-    fn apply(&self, target: &mut Point) {
-        let right = Vector2::new(1, 0);
-        let up = Vector2::new(0, 1);
-        match self {
-            Direction::Left => *target -= right,
-            Direction::Right => *target += right,
-            Direction::Up => *target += up,
-            Direction::Down => *target -= up,
-        };
-    }
 }
 
 struct Wire {
@@ -119,19 +105,18 @@ struct Wire {
 }
 
 impl Wire {
-    pub fn new(start: Point, segments: Vec<Segment>) -> Self {
-        Self { start, segments }
-    }
-
     pub fn from_str(start: Point, segments: &[&str]) -> Result<Self, Error> {
         Ok(Self {
             start,
-            segments: segments.iter().map(|&seg| Segment::try_from(seg)).collect::<Result<Vec<_>, _>>()?,
+            segments: segments
+                .iter()
+                .map(|&seg| Segment::try_from(seg))
+                .collect::<Result<Vec<_>, _>>()?,
         })
     }
 
-    pub fn iter_points<'a>(&'a self) -> impl Iterator<Item=Point> + 'a {
-        let mut curr = self.start.clone();
+    pub fn iter_points<'a>(&'a self) -> impl Iterator<Item = Point> + 'a {
+        let mut curr = self.start;
         self.segments
             .iter()
             .flat_map(|segment| segment.iter_steps())
@@ -141,32 +126,80 @@ impl Wire {
             })
     }
 
-    pub fn intersections<'a>(&'a self, other: &'a Wire) -> impl Iterator<Item=Point> + 'a {
-        let points: HashSet<Point> = self.iter_points().collect();
-        other.iter_points().filter_map(move |point| {
-            if points.contains(&point) {
-                Some(point)
-            } else {
-                None
+    pub fn intersections<'a>(
+        &'a self,
+        other: &'a Wire,
+    ) -> impl Iterator<Item = (Point, usize)> + 'a {
+        let mut points: HashMap<Point, usize> = HashMap::new();
+        self.iter_points().enumerate().for_each(|(dist, point)| {
+            points
+                .entry(point)
+                .and_modify(|curr_dist| {
+                    if *curr_dist > dist {
+                        *curr_dist = dist
+                    }
+                })
+                .or_insert(dist);
+        });
+        other
+            .iter_points()
+            .enumerate()
+            .filter_map(move |(curr_dist, point)| {
+                points
+                    .get(&point)
+                    .map(|dist| (point, curr_dist + *dist + 2))
+            })
+    }
+}
+
+pub fn main() -> Result<()> {
+    let input = read_to_string("data/day03.txt")?;
+    let lines = input.lines();
+    let data = lines
+        .map(|line| {
+            let segments: Vec<&str> = line.split(',').collect();
+            Wire::from_str(Point::new(0, 0), &segments).map_err(::anyhow::Error::from)
+        })
+        .collect::<Result<Vec<_>>>()?;
+    assert_eq!(data.len(), 2);
+    let intersections = data[0].intersections(&data[1]).collect::<Vec<_>>();
+    let closest = intersections
+        .iter()
+        .fold(None, |acc, val| match acc {
+            None => Some(val.0),
+            Some(curr) => {
+                if val.0.x.abs() + val.0.y.abs() < curr.x.abs() + curr.y.abs() {
+                    Some(val.0)
+                } else {
+                    Some(curr)
+                }
             }
         })
-    }
+        .ok_or_else(|| ::anyhow::Error::from(Error::NoIntersections))?;
+    println!("Part 1: {}", closest.x.abs() + closest.y.abs());
+    let shortest = intersections
+        .iter()
+        .map(|(_, dist)| dist)
+        .min()
+        .ok_or_else(|| ::anyhow::Error::from(Error::NoIntersections))?;
+    println!("Part 2: {}", shortest);
+    Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_directions() {
-        let mut point = Point::new(1, 1);
-        Direction::Left.apply(&mut point);
-        assert_eq!(point, Point::new(0, 1));
-        Direction::Right.apply(&mut point);
-        Direction::Up.apply(&mut point);
-        assert_eq!(point, Point::new(1, 2));
-        Direction::Down.apply(&mut point);
-        assert_eq!(point, Point::new(1, 1));
+    impl Segment {
+        fn new(direction: Direction, length: Value) -> Self {
+            Self { direction, length }
+        }
+    }
+
+    impl Wire {
+        fn new(start: Point, segments: Vec<Segment>) -> Self {
+            Self { start, segments }
+        }
     }
 
     #[test]
@@ -209,43 +242,25 @@ mod tests {
                 Segment::new(Direction::Right, 4),
             ],
         );
-        let expected = vec![Point::new(4, 2)];
+        let expected = vec![(Point::new(4, 2), 8)];
         assert_eq!(
-            wire_a.intersections(&wire_b).collect::<Vec<Point>>(),
+            wire_a
+                .intersections(&wire_b)
+                .collect::<Vec<(Point, usize)>>(),
             expected
         );
     }
 
     #[test]
     fn test_from() {
-        assert_eq!(Segment::try_from("R255").unwrap(), Segment::new(Direction::Right, 255));
+        assert_eq!(
+            Segment::try_from("R255").unwrap(),
+            Segment::new(Direction::Right, 255)
+        );
     }
 
     #[test]
-    fn test_main() {
-        main();
+    fn test_main() -> Result<()> {
+        main()
     }
-}
-
-fn main() -> Result<()> {
-    let input = read_to_string("data/day03.txt")?;
-    let lines = input.lines();
-    let mut data = lines
-        .map(|line| {
-            let segments: Vec<&str> = line.split(',').collect();
-            Wire::from_str(Point::new(0, 0), &segments).map_err(::anyhow::Error::from)
-        }).collect::<Result<Vec<_>>>()?;
-    assert_eq!(data.len(), 2);
-    let closest = data[0].intersections(&data[1]).fold(None, |acc, val|
-        match acc {
-            None => dbg!(Some(val)),
-            Some(curr) => if val.x.abs() + val.y.abs() < curr.x.abs() + curr.y.abs() {
-                Some(val)
-            } else {
-                Some(curr)
-            }
-        },
-    ).ok_or(::anyhow::Error::from(Error::NoIntersections))?;
-    println!("Part 1: {}", closest.x.abs() + closest.y.abs());
-    Ok(())
 }
