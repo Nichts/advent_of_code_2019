@@ -8,6 +8,10 @@ pub(super) enum OpCode {
     Multiply,
     Input,
     Output,
+    JumpIfTrue,
+    JumpIfFalse,
+    LessThan,
+    Equals,
     Halt,
 }
 
@@ -20,6 +24,10 @@ impl TryFrom<Value> for OpCode {
             2 => OpCode::Multiply,
             3 => OpCode::Input,
             4 => OpCode::Output,
+            5 => OpCode::JumpIfTrue,
+            6 => OpCode::JumpIfFalse,
+            7 => OpCode::LessThan,
+            8 => OpCode::Equals,
             99 => OpCode::Halt,
             _ => return Err(Error::InvalidOpCode(value)),
         })
@@ -36,6 +44,10 @@ mod tests {
         assert_eq!(OpCode::try_from(2).unwrap(), OpCode::Multiply);
         assert_eq!(OpCode::try_from(3).unwrap(), OpCode::Input);
         assert_eq!(OpCode::try_from(4).unwrap(), OpCode::Output);
+        assert_eq!(OpCode::try_from(5).unwrap(), OpCode::JumpIfTrue);
+        assert_eq!(OpCode::try_from(6).unwrap(), OpCode::JumpIfFalse);
+        assert_eq!(OpCode::try_from(7).unwrap(), OpCode::LessThan);
+        assert_eq!(OpCode::try_from(8).unwrap(), OpCode::Equals);
         assert_eq!(OpCode::try_from(99).unwrap(), OpCode::Halt);
     }
 

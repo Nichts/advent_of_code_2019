@@ -4,10 +4,10 @@ use crate::vm::Computer;
 use anyhow::{anyhow, Result};
 use std::fs::read_to_string;
 
-fn run(data: &[i64]) -> Result<Value> {
+fn run(data: &[i64], input: i64) -> Result<Value> {
     let data = data.to_owned();
     let mut out: Vec<Value> = Vec::new();
-    let mut input = Some(1);
+    let mut input = Some(input);
     let mut read = || input.take().ok_or(Error::ReadingNotSupported);
     let mut write = |value| {
         out.push(value);
@@ -39,8 +39,10 @@ pub fn main() -> Result<()> {
         .split(',')
         .map(|val| val.parse::<i64>().map_err(::anyhow::Error::from))
         .collect::<Result<Vec<_>>>()?;
-    let res = run(&data)?;
+    let res = run(&data, 1)?;
     println!("Part 1: {}", res);
+    let res = run(&data, 5)?;
+    println!("Part 2: {}", res);
     Ok(())
 }
 
